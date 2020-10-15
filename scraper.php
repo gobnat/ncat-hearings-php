@@ -41,45 +41,29 @@ $endDate = new \DateTime(date('Y-m-d', strtotime("+30 days")));
 $interval = \DateInterval::createFromDateString('1 day');
 $period = new \DatePeriod($startDate, $interval, $endDate);
 
-
 //Loop through venues
 foreach ($links as $link) {
-  //echo $link["location"] . " | " . $link["url"] . " | " . $link["postcode"] . "<br>";
   $url = $link["url"];
-  //echo $url . "<br>";
-  //$url = 'https://online.ncat.nsw.gov.au/Hearing/HearingList.aspx?LocationCode=2000';
   $dom->load(scraperwiki::scrape($url));
-
   //Loop through each date and collect results
   foreach ($period as $date) {
     //Tell people what you are doing
     echo "Processing " . $date->format("d-m-Y") . " for " . $link["postcode"] . "<br>\n";
-    //make produce the id used to find eac hearing table
+    //make the id used to find each hearing table
     $id = "dg" . $date->format("dmY");
-    //echo $id . "<br>";
+    //Find and loop through each hearing table
     foreach($dom->find('table[id=' . $id . '] tr.clsGridItem') as $e){
-      if (is_null($e)) {
-        //nothing
-        echo "no item <br>";
-      }else{
-        //Grab the time and place infor from span above table
-        /**
-        *
-        *
-        **/
-
-
-        if (is_null($e->parent()->prev_sibling()->prev_sibling()->find('span'))) {
-          $time_and_place = $e->parent()->prev_sibling()->innertext;
-
-        }else {
-          $time_and_place = $e->parent()->prev_sibling()->prev_sibling()->innertext;
-        }
+      //This is a hack from the ruby scrapper to handle some inconsistent formatting on some pages.
+      //May no longer bee needed - review in testing
+      if (is_null($e->parent()->prev_sibling()->prev_sibling()->find('span'))) {
+        $time_and_place = $e->parent()->prev_sibling()->innertext;
+      }else {
+        $time_and_place = $e->parent()->prev_sibling()->prev_sibling()->innertext;
       }
-      //Need to spit out time first with preg_match cause... php... probably a better way to do this but I cant find it.
+      //Need to split out time first with preg_match before using it in result array because... php... probably a better way to do this but I cant find it.
       preg_match('/(^.*(A|P)M)/', $time_and_place, $time_matches);
 
-      //Create aour NCAT case object/array
+      //Create our NCAT case object/array
       $ncat_case = array(
         'unique_id'       => $date->format("d-m-Y") . $e->find('td')[0]->innertext,
         'case_number'     => $e->find('td')[0]->innertext,
@@ -92,24 +76,14 @@ foreach ($links as $link) {
         'venue_postcode'  => $link["postcode"]
       );
 
-      // // Write out to the sqlite database using scraperwiki library
-      //scraperwiki::save_sqlite(array($ncat_case['unique_id']), $ncat_case);
-      $res[] = $ncat_case;
+      // Write out to the sqlite database using scraperwiki library
+      scraperwiki::save_sqlite(array($ncat_case['unique_id']), $ncat_case);
+      //For testing locally print out result
+      //print_r($ncat_case);
     } //each id
   } //end period
 }//end link
 
-
-//print_r($res);
-
-
-
-
-
-
-//
-// // An arbitrary query against the database
-// scraperwiki::select("* from data where 'name'='peter'")
 
 // You don't have to do things with the ScraperWiki library.
 // You can use whatever libraries you want: https://morph.io/documentation/php
